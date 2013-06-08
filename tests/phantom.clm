@@ -1,0 +1,5 @@
+let open = fun u -U> @lunit in
+
+(fun u -U>
+  let f = open u in
+    f)

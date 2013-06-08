@@ -1,0 +1,5 @@
+fix (fun f -U> fun x -U>
+  match (x > 0) with
+    inl dummy -> x + f (x-1)
+  | inr dummy -> 0
+  )

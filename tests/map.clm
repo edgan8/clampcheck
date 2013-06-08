@@ -1,0 +1,8 @@
+fix (fun frec -U> fun f -U> fun l -U>
+  match (@l_unfold l) with
+    inl ccell ->(
+      letp (hd,tl) = ccell in
+      @l_cons ((f hd),(frec f tl))
+      )
+  | inr dummy -> @l_nil
+  )
