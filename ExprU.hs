@@ -15,6 +15,7 @@ import Data.Generics
 
 data Lit = 
     LiNum Int 
+  | LiLab Int
   | LiUnit
   deriving (Show,Data,Typeable,Eq)
 
@@ -63,8 +64,8 @@ data Expr =
   | ExLetp Idx Idx Expr Expr
   | ExMatch Expr Idx Expr Idx Expr
   | ExWith Expr Expr
-  | ExDup [Idx] [(Idx,Idx)] Expr
-  | ExDrop [Idx] Expr
+  | ExDup [Expr] [(Idx,Idx)] Expr
+  | ExDrop [Expr] Expr
   | ExPrim1 PrimOp1 Expr
   | ExPrim2 PrimOp2 Expr Expr
   deriving (Show,Data,Typeable,Eq)
@@ -77,6 +78,9 @@ renameIdxs e ips =
                   | otherwise = i1
 
 ---- Free Var Calculations ----
+
+unioncat :: [[Idx]] -> [Idx]
+unioncat ils = foldl union [] ils
 
 -- SET of free variables
 fv :: Expr -> [Idx]
@@ -91,10 +95,10 @@ fv (ExLet i e1 e2) = union (fv e1) (delete i (fv e2))
 fv (ExLetp i1 i2 e1 e2) = union (fv e1) (fv e2 \\ [i1,i2])
 fv (ExMatch e i1 e1 i2 e2) = union (fv e) (union (i1 `delete` fv e1) (i2 `delete` fv e2))
 fv (ExWith e1 e2) = fv e1 `union` fv e2
-fv (ExDup dvs newvps e) = 
+fv (ExDup des newvps e) = 
   let newvs = (uncurry union) (unzip newvps) in
-  union dvs (fv e \\ newvs)
-fv (ExDrop dvs e) = dvs `union` fv e
+  (unioncat (map fv des)) `union` (fv e \\ newvs)
+fv (ExDrop des e) = (unioncat (map fv des)) `union` fv e
 
 ---- Declarations ----
 
@@ -146,6 +150,8 @@ instance Pretty Expr where
 
 pprIdList :: [Idx] -> Doc
 pprIdList is = sep $ punctuate comma (map pretty is)
+pprExprList :: [Expr] -> Doc
+pprExprList es = sep $ punctuate comma (map pretty es)
 
 pprIdPair :: (Idx,Idx) -> Doc
 pprIdPair (i1,i2) = parens (pretty i1 <> comma <> pretty i2)
@@ -156,6 +162,7 @@ tin = text "in"
 
 pprExprPrec :: Int -> Expr -> Doc
 pprExprPrec p (ExLit (LiNum i)) = int i
+pprExprPrec p (ExLit (LiLab i)) = text "l"<>int i
 pprExprPrec p (ExLit (LiUnit)) = text "unit"
 pprExprPrec p (ExVar i) = pretty i
 pprExprPrec p (ExGVar i) = pretty i
@@ -183,12 +190,12 @@ pprExprPrec p (ExMatch e i1 e1 i2 e2) =
 pprExprPrec p (ExWith e1 e2) =
   brackets $ pprExprPrec 0 e1 <> comma <> pprExprPrec 0 e2
 pprExprPrec p (ExDup xs xps e) =
-  let s = text "dup" <+> (pprIdList xs) <+> text "as" 
+  let s = text "dup" <+> (pprExprList xs) <+> text "as" 
           <+> (pprIdPairList xps) <+> tin </> pprExprPrec 0 e
       in
   addParen p 0 s
 pprExprPrec p (ExDrop xs e) =
-  let s = text "drop" <+> (pprIdList xs) <+> tin
+  let s = text "drop" <+> (pprExprList xs) <+> tin
           </> pprExprPrec 0 e
       in
   addParen p 0 s

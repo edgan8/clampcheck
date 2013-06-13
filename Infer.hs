@@ -254,7 +254,8 @@ tiExpr ce as (ExWith e1 e2) = do
 -- First instantiate schemes, then apply dup constraint to type instances
 -- but rebind to original schemes, since we don't want to lose polymorphism thorugh
 -- a dup, e.g. a dup acts as a let-generalizable location
-tiExpr ce as (ExDup dupvs newvs e) = do
+tiExpr ce as (ExDup dupes newvs e) = do
+  let dupvs = map (\(ExVar i) -> i) dupes
   dupvtschs <- mapM (\i -> elookup i as) dupvs
   dupvqts <- mapM freshInst dupvtschs
   let (dupvPrds, dupvTyps) = sepQuals dupvqts
@@ -264,7 +265,8 @@ tiExpr ce as (ExDup dupvs newvs e) = do
   InferRet {irpreds=ep, irt=et} <- tiExpr ce (newas++as) e
   return $ InferRet {irpreds=(dupvPrds++duppreds++ep), irt=et}
 
-tiExpr ce as (ExDrop dropvs e) = do
+tiExpr ce as (ExDrop dropes e) = do
+  let dropvs = map (\(ExVar i ) -> i) dropes
   dropvtschs <- mapM (\i -> elookup i as) dropvs
   dropvqts <- mapM freshInst dropvtschs
   let (dropvPrds, dropvTyps) = sepQuals dropvqts
@@ -283,6 +285,9 @@ tiExpr ce as (ExPrim2 pOp e1 e2) = do
   rett <- tiPrim2 pOp e1t e2t
   return $ InferRet {irpreds=e1p++e2p, irt=rett}
 
+tiExprQT ce as e = do
+  InferRet {irpreds=p,irt=t} <- tiExpr ce as e
+  return (p,t)
 ---- Type Generalization ----
 
 split :: Monad m => ClassEnv -> [TypeVar] -> [TypeVar] -> [Pred]

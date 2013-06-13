@@ -25,11 +25,11 @@ freshName i = do
 -- Insert possibly empty dups and drops
 insertDup :: AnCtx -> [(Idx,Idx)] -> Expr -> Expr
 insertDup [] _ e = e
-insertDup xs@(x:tl) xps e = ExDup xs xps e
+insertDup xs@(x:tl) xps e = ExDup (map ExVar xs) xps e
 
 insertDrop :: AnCtx -> Expr -> Expr
 insertDrop [] e = e
-insertDrop xs@(x:tl) e = ExDrop xs e
+insertDrop xs@(x:tl) e = ExDrop (map ExVar xs) e
 
 
 annotExpr :: Expr -> Expr
