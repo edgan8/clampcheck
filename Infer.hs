@@ -16,6 +16,8 @@ import Idx
 import Types
 import Classes
 import ExprU
+import Run
+import Debug.Trace
 
 ----Type Inference Monad----
 data Assump = AMap Idx Scheme
@@ -303,16 +305,23 @@ split ce fixvs quantvs ps = do
 
 ---- Declaration Inference, used at let binding sites ----
 tiDecl :: Infer Decl Assump
-tiDecl ce as (DcLet i e) = do
-  eir <- tiExpr ce as e
-  s <- getSubst
-  let epreds = apply s (irpreds eir)
-      ety = apply s (irt eir)
-      fvs = tv (apply s as)
-      quantvs = tv ety \\ fvs
-  (dpreds,rpreds) <- split ce fvs quantvs epreds
-  let tsc = quantify quantvs (rpreds :=> ety)
-  return $ InferRet {irpreds=dpreds,irt=AMap i tsc}
+tiDecl ce as (DcLet i e) 
+  -- Note Value restriction on generalization
+  | isGeneralizable e = do
+    eir <- tiExpr ce as e
+    s <- getSubst
+    let epreds = apply s (irpreds eir)
+        ety = apply s (irt eir)
+        fvs = tv (apply s as)
+        quantvs = tv ety \\ fvs
+    (dpreds,rpreds) <- {-trace (show "----\ni:"++"ty:"++(show $ pretty ety)++"env:"++(show as)) -}
+                          split ce fvs quantvs epreds
+    let tsc = quantify quantvs (rpreds :=> ety)
+    return $ InferRet {irpreds=dpreds,irt=AMap i tsc}
+  | otherwise = do
+    InferRet {irpreds=retp,irt=rett} <- tiExpr ce as e
+    return $ InferRet {irpreds=retp,irt=AMap i (toScheme rett)}
+
 
 
 tiDeclT :: ClassEnv -> [Assump] -> Idx -> Expr -> Assump
@@ -323,7 +332,7 @@ tiDeclT ce as i e =
       in
   case epreds of
     [] -> eas
-    _ -> error "deferred predicates!"
+    _ -> eas
 
 ---- Initial Assumption Environment ----
 

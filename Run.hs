@@ -1,6 +1,8 @@
 module Run (
   RMError(..), RMState, RuMonad, RuVal(..), RuStore,
-  run
+  run,
+  isGeneralizable,
+  isVal,convertVal,convertExpr
 ) where
 
 import Pretty
@@ -53,6 +55,10 @@ type LMSet = M.Map Int Int
 
 subBuiltins :: Expr -> Expr
 subBuiltins = id -- TODO
+
+isGeneralizable :: Expr -> Bool
+isGeneralizable (ExPrim1 (PrFix) e) = isVal e
+isGeneralizable e = isVal e
 
 isVal :: Expr -> Bool
 isVal (ExLit _) = True

@@ -1,0 +1,2 @@
+let id = (fun x -U> x) in
+  (id 1,id (2,3>3))
