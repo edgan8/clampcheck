@@ -8,6 +8,7 @@ import Annot
 import Types
 import Classes
 import Infer
+import Run
 import Control.Arrow
 
 initialAssump = initAS
@@ -29,7 +30,11 @@ processInput s =
             text "----Annotated Expression:----"<$>
             pretty e<$>
             text "----Inferred TypeScheme:-----"<$>
-            pretty et<>line
+            pretty et<$>
+            text "----Interpreter Results:-----"<$>
+            let (m,v) = run e in
+            text ("map: "++show m)<$>
+            pretty v<>line
         in
       show outdoc
 

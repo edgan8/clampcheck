@@ -1,4 +1,6 @@
 module Run (
+  RMError(..), RMState, RuMonad, RuVal(..), RuStore,
+  run
 ) where
 
 import Pretty
@@ -24,6 +26,9 @@ data RuVal =
   | RVInr RuVal
   | RVPair RuVal RuVal
   deriving (Show,Eq)
+
+instance Pretty RuVal where
+  pretty v = pretty (convertExpr v)
 
 data RuCont = 
     KApp1 Expr
@@ -66,17 +71,27 @@ convertVal (ExPrim1 (PrInr) v) = RVInr (convertVal v)
 convertVal (ExPrim2 (PrPair) v1 v2) = 
   RVPair (convertVal v1) (convertVal v2)
 
+convertExpr :: RuVal -> Expr
+convertExpr (RVLit l) = ExLit l
+convertExpr (RVAbs a i e) = ExAbs a i e
+convertExpr (RVWith e1 e2) = ExWith e1 e2
+convertExpr (RVInl v) = ExPrim1 PrInl (convertExpr v)
+convertExpr (RVInr v) = ExPrim1 PrInr (convertExpr v)
+convertExpr (RVPair v1 v2) = 
+  ExPrim2 PrPair (convertExpr v1) (convertExpr v2)
+
+-- TODO
 locs :: RuVal -> LMSet
-locs = undefined
+locs r = M.empty
 
 incr :: LMSet -> RuStore -> RuStore
-incr = undefined
+incr ls s = s
 
 decr :: LMSet -> RuStore -> RuStore
-decr = undefined
+decr ls s = s
 
-subst :: Expr -> Idx -> RuVal -> Expr
-subst = undefined
+substV :: Expr -> Idx -> RuVal -> Expr
+substV e i v = subst e i (convertExpr v)
 
 runRuMonad :: RMState -> RuMonad a -> a
 runRuMonad s m = evalState (do
@@ -114,7 +129,7 @@ step (s,k,ExDup es ips e2) = do
     processExp k v = 
       incr (locs v) k
     processBinds e2 (v,(i1,i2)) =
-      subst (subst e2 i2 v) i1 v
+      substV (substV e2 i2 v) i1 v
 step (s,k,ExDrop es e2) = do
   return $ Left $ (foldl processExp s es,k,e2)
   where 
@@ -134,15 +149,15 @@ stepVal :: (RuStore,[RuCont],RuVal) -> RuMonad (Either RuState RuFState)
 stepVal (s,(KApp1 e):ktl,v@(RVAbs _ _ _)) = do
   return $ Left (s,(KApp2 v):ktl,e)
 stepVal (s,(KApp2 (RVAbs _ i e)):ktl,v) = do
-  return $ Left (s,ktl,subst e i v)
+  return $ Left (s,ktl,substV e i v)
 stepVal (s,(KLet i e):ktl,v) = do
-  return $ Left (s,ktl,subst e i v)
+  return $ Left (s,ktl,substV e i v)
 stepVal (s,(KLetp i1 i2 e):ktl,RVPair v1 v2) = do
-  return $ Left (s,ktl,subst (subst e i1 v1) i2 v2)
+  return $ Left (s,ktl,substV (substV e i1 v1) i2 v2)
 stepVal (s,(KMatch i1 e1 i2 e2):ktl,RVInl v) = do
-  return $ Left (s,ktl,subst e1 i1 v)
+  return $ Left (s,ktl,substV e1 i1 v)
 stepVal (s,(KMatch i1 e1 i2 e2):ktl,RVInr v) = do
-  return $ Left (s,ktl,subst e2 i2 v)
+  return $ Left (s,ktl,substV e2 i2 v)
 stepVal (s,(K1Prim p):ktl,v) = do
   (s2,v2) <- applyPrim1 p (s,v)
   stepVal (s2,ktl,v2)
@@ -162,7 +177,6 @@ applyPrim1 PrFst (s,RVPair v1 v2) =
   return (s,v1)
 applyPrim1 PrSnd (s,RVPair v1 v2) =
   return (s,v2)
-applyPrim1 PrFix _ = undefined
 applyPrim1 PrWNew (s,v) = do
   lnum <- lift get
   put (lnum+1)

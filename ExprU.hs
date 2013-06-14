@@ -4,6 +4,7 @@ module ExprU(
   module Idx,
   Lit(..), PrimOp1(..), PrimOp2(..), AQual(..), Expr(..), 
   Decl(..),
+  subst,
   renameIdxs,
   fv
 ) where
@@ -76,6 +77,15 @@ renameIdxs e ips =
   where
     rename1Idx i1 | (Just i2) <- lookup i1 ips = i2
                   | otherwise = i1
+
+-- Assume all identifiers distinct after renaming
+subst :: Expr -> Idx -> Expr -> Expr
+subst e x es =
+  everywhere (mkT substVar) e
+  where
+    substVar (ExVar i)  | (x == i) = es
+                        | otherwise = ExVar i
+    substVar e = e
 
 ---- Free Var Calculations ----
 
@@ -159,11 +169,13 @@ pprIdPairList :: [(Idx,Idx)] -> Doc
 pprIdPairList is = sep $ punctuate comma (map pprIdPair is)
 
 tin = text "in"
+instance Pretty Lit where
+  pretty (LiNum i) = int i
+  pretty (LiLab i) = text "l"<>int i
+  pretty (LiUnit) = text "()"
 
 pprExprPrec :: Int -> Expr -> Doc
-pprExprPrec p (ExLit (LiNum i)) = int i
-pprExprPrec p (ExLit (LiLab i)) = text "l"<>int i
-pprExprPrec p (ExLit (LiUnit)) = text "unit"
+pprExprPrec p (ExLit l) = pretty l
 pprExprPrec p (ExVar i) = pretty i
 pprExprPrec p (ExGVar i) = pretty i
 pprExprPrec p (ExAbs aq i e) = 
