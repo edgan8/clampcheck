@@ -8,6 +8,7 @@ import Util
 import Idx
 import Types
 import ExprU
+import Debug.Trace
 import qualified Data.Map as M
 
 data RMError = RMString String
@@ -108,7 +109,9 @@ runS :: RuState -> RuMonad RuFState
 runS s = do
   res <- step s
   case res of
-    Left s2 -> runS s2
+    Left s2 -> 
+      let (_,k,e) = s2 in
+      {-trace ("---\nk:"++(show k)++"\ne:"++(show $ pretty e))-} (runS s2)
     Right sf -> return sf
 
 step :: RuState -> RuMonad (Either RuState RuFState)
@@ -159,8 +162,10 @@ stepVal (s,(KMatch i1 e1 i2 e2):ktl,RVInl v) = do
 stepVal (s,(KMatch i1 e1 i2 e2):ktl,RVInr v) = do
   return $ Left (s,ktl,substV e2 i2 v)
 stepVal (s,(K1Prim p):ktl,v) = do
-  (s2,v2) <- applyPrim1 p (s,v)
-  stepVal (s2,ktl,v2)
+  (s2,v_or_e) <- applyPrim1 p (s,v)
+  case v_or_e of
+    Left v2 -> stepVal (s2,ktl,v2)
+    Right e2 -> return $ Left (s,ktl,e2)
 stepVal (s,(K2Prim1 p e):ktl,v) = do
   return $ Left (s,(K2Prim2 p v):ktl,e)
 stepVal (s,(K2Prim2 p v1):ktl,v2) =
@@ -168,19 +173,22 @@ stepVal (s,(K2Prim2 p v1):ktl,v2) =
 stepVal (s,[],v) = do
   return $ Right (s,v)
 
-applyPrim1 :: PrimOp1 -> (RuStore,RuVal) -> RuMonad (RuStore,RuVal)
+applyPrim1 :: PrimOp1 -> (RuStore,RuVal) -> 
+                RuMonad (RuStore,Either RuVal Expr)
 applyPrim1 PrInl (s,v) =
-  return (s,RVInl v)
+  return (s,Left $ RVInl v)
 applyPrim1 PrInr (s,v) =
-  return (s,RVInr v)
-applyPrim1 PrFst (s,RVPair v1 v2) =
-  return (s,v1)
-applyPrim1 PrSnd (s,RVPair v1 v2) =
-  return (s,v2)
+  return (s,Left $ RVInr v)
+applyPrim1 PrFst (s,RVWith e1 e2) =
+  return (s,Right e1)
+applyPrim1 PrSnd (s,RVWith e1 e2) =
+  return (s,Right e2)
+applyPrim1 PrFix (s,RVAbs q i e1) =
+  return (s,Right $ subst e1 i (ExPrim1 PrFix (ExAbs q i e1)))
 applyPrim1 PrWNew (s,v) = do
   lnum <- lift get
   put (lnum+1)
-  return (M.insert lnum (v,1) s,RVLit (LiLab lnum))
+  return (M.insert lnum (v,1) s,Left $ RVLit (LiLab lnum))
 
 applyPrim2 :: PrimOp2 -> RuVal -> RuVal -> RuVal
 applyPrim2 PrPair v1 v2 = RVPair v1 v2

@@ -78,14 +78,47 @@ renameIdxs e ips =
     rename1Idx i1 | (Just i2) <- lookup i1 ips = i2
                   | otherwise = i1
 
--- Assume all identifiers distinct after renaming
 subst :: Expr -> Idx -> Expr -> Expr
-subst e x es =
-  everywhere (mkT substVar) e
+subst e@(ExLit _) _ _ = e
+subst (ExVar i) x es  
+  | i == x = es
+  | otherwise = ExVar i
+subst e@(ExGVar g) x es
+  | g == x = es
+  | otherwise = ExGVar g
+subst e@(ExAbs a i e1) x es 
+  | i == x = e
+  | otherwise = ExAbs a i (subst e1 x es)
+subst (ExApp e1 e2) x es =
+  ExApp (subst e1 x es) (subst e2 x es)
+subst (ExLet i e1 e2) x es
+  | i == x = ExLet i (subst e1 x es) e2
+  | otherwise = ExLet i (subst e1 x es) (subst e2 x es)
+subst (ExLetp i1 i2 e1 e2) x es
+  | (i1==x || i2==x) = ExLetp i1 i2 (subst e1 x es) e2
+  | otherwise = ExLetp i1 i2 (subst e1 x es) (subst e2 x es)
+subst (ExMatch e i1 e1 i2 e2) x es
+  | (i1==x && i2==x) = ExMatch (subst e x es) i1 e1 i2 e2
+  | (i1==x) = ExMatch (subst e x es) i1 e1 i2 (subst e2 x es)
+  | (i2==x) = ExMatch (subst e x es) i1 (subst e1 x es) i2 e2
+  | otherwise = ExMatch (subst e x es)
+                        i1 (subst e1 x es)
+                        i2 (subst e2 x es)
+subst (ExWith e1 e2) x es =
+  ExWith (subst e1 x es) (subst e2 x es)
+subst (ExDup el ips e2) x es
+  | (any pairmatch ips) = 
+    ExDup (map (\e -> subst e x es) el) ips e2
+  | otherwise =
+    ExDup (map (\e -> subst e x es) el) ips (subst e2 x es)
   where
-    substVar (ExVar i)  | (x == i) = es
-                        | otherwise = ExVar i
-    substVar e = e
+    pairmatch (i1,i2) = (i1 == x || i2 ==x)
+subst (ExDrop el e2) x es = 
+  ExDrop (map (\e -> subst e x es) el) (subst e2 x es)
+subst (ExPrim1 p e) x es = ExPrim1 p (subst e x es)
+subst (ExPrim2 p e1 e2) x es = ExPrim2 p (subst e1 x es) (subst e2 x es)
+    
+
 
 ---- Free Var Calculations ----
 
