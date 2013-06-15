@@ -11,6 +11,8 @@ import Idx
 import Types
 import ExprU
 import Debug.Trace
+import Data.Data
+import Data.Generics
 import qualified Data.Map as M
 
 data RMError = RMString String
@@ -51,10 +53,18 @@ type RuStore = M.Map Int (RuVal,Int)
 type RuState = (RuStore,[RuCont],Expr)
 type RuFState = (RuStore,RuVal)
 
-type LMSet = M.Map Int Int
+type LMSet = [Int]
 
 subBuiltins :: Expr -> Expr
-subBuiltins = id -- TODO
+subBuiltins e =
+  everywhere (mkT subGVar) e
+  where
+    subGVar (ExGVar gv) 
+      | gv == IdS "@lunit" = ExLit LiUnit
+      | gv == IdS "@ldispose" = 
+        ExAbs AQU (IdS "lddummy") (ExLit LiUnit)
+      | otherwise = ExGVar gv
+    subGVar e = e
 
 isGeneralizable :: Expr -> Bool
 isGeneralizable (ExPrim1 (PrFix) e) = isVal e
@@ -88,14 +98,48 @@ convertExpr (RVPair v1 v2) =
   ExPrim2 PrPair (convertExpr v1) (convertExpr v2)
 
 -- TODO
+
+msetplus :: LMSet -> LMSet -> LMSet
+msetplus = ( ++ )
+msetsing x = [x]
+msetempty = []
+
+locsE :: Expr -> LMSet
+locsE (ExLit (LiLab l)) = msetsing l
+locsE (ExLit _) = msetempty
+locsE (ExVar _) = msetempty
+locsE (ExGVar _) = msetempty
+locsE (ExAbs _ _ e) = locsE e
+locsE (ExApp e1 e2) = msetplus (locsE e1) (locsE e2)
+locsE (ExLet _ e1 e2) = msetplus (locsE e1) (locsE e2)
+locsE (ExLetp _ _ e1 e2) = msetplus (locsE e1) (locsE e2)
+locsE (ExMatch e _ e1 _ e2) = msetplus (locsE e) (locsE e1)
+locsE (ExDup es _ e2) = foldl msetplus (locsE e2) (map locsE es)
+locsE (ExDrop es e2) = foldl msetplus (locsE e2) (map locsE es)
+locsE (ExPrim1 _ e) = locsE e
+locsE (ExPrim2 _ e1 e2) = msetplus (locsE e1) (locsE e2)
+
 locs :: RuVal -> LMSet
-locs r = M.empty
+locs = locsE . convertExpr
 
 incr :: LMSet -> RuStore -> RuStore
-incr ls s = s
+incr ls s = 
+  foldl incrl s ls
+  where
+    incrl s l =
+      M.adjust (\(v,i) -> (v,i+1)) l s
 
 decr :: LMSet -> RuStore -> RuStore
-decr ls s = s
+decr ls s =
+  foldl decrl s ls
+  where
+    decrl s l =
+      case (M.lookup l s) of
+        Just (v,i) -> if (i>1) then
+                        M.insert l (v,i-1) s
+                      else
+                        M.delete l (decr (locs v) s)
+        Nothing -> error "lab not found during decr"
 
 substV :: Expr -> Idx -> RuVal -> Expr
 substV e i v = subst e i (convertExpr v)
@@ -109,7 +153,7 @@ runRuMonad s m = evalState (do
   ) s
 
 run :: Expr -> RuFState
-run e = runRuMonad 0 (runS (M.empty,[],e))
+run e = runRuMonad 0 (runS (M.empty,[],subBuiltins e))
 
 runS :: RuState -> RuMonad RuFState
 runS s = do
@@ -117,7 +161,7 @@ runS s = do
   case res of
     Left s2 -> 
       let (_,k,e) = s2 in
-      {-trace ("---\nk:"++(show k)++"\ne:"++(show $ pretty e))-} (runS s2)
+      trace ("---\nk:"++(show k)++"\ne:"++(show $ pretty e)) (runS s2)
     Right sf -> return sf
 
 step :: RuState -> RuMonad (Either RuState RuFState)
@@ -195,6 +239,14 @@ applyPrim1 PrWNew (s,v) = do
   lnum <- lift get
   put (lnum+1)
   return (M.insert lnum (v,1) s,Left $ RVLit (LiLab lnum))
+applyPrim1 PrRelease (s,RVLit (LiLab l)) = do
+  case (M.lookup l s) of
+    Just (sv,i) -> 
+      if (i>1) then
+        return (M.insert l (sv,i-1) s,Left $ RVInr (RVLit (LiUnit)))
+      else
+        return (M.delete l s,Left $ RVInl sv)
+    Nothing -> error "bad release"
 
 applyPrim2 :: PrimOp2 -> RuVal -> RuVal -> RuVal
 applyPrim2 PrPair v1 v2 = RVPair v1 v2

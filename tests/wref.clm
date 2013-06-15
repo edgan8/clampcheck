@@ -5,9 +5,9 @@ let read = fun f -U> (1,f) in
 let runParallel = fun f -U> fun x -L>
   (f x, f x) in
 let fref = wnew (open unit) in
-let proc = (fun u -R> 
-  match (release fref) with
+let proc = fun u -R> 
+  match release fref with
     inl f -> close f
   | inr dummy -> dummy
-  ) in
+  in
 runParallel proc unit
