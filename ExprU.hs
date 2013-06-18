@@ -153,8 +153,8 @@ data Decl =
 
 -- Primitive Operator Pretty Printing
 instance Pretty PrimOp1 where
-  pretty (PrInl) = text "inl"
-  pretty (PrInr) = text "inr"
+  pretty (PrInl) = text "Left"
+  pretty (PrInr) = text "Right"
   pretty (PrFst) = text "fst"
   pretty (PrSnd) = text "snd"
   pretty (PrFix) = text "fix"
@@ -212,7 +212,7 @@ pprExprPrec p (ExLit l) = pretty l
 pprExprPrec p (ExVar i) = pretty i
 pprExprPrec p (ExGVar i) = pretty i
 pprExprPrec p (ExAbs aq i e) = 
-  let s = (text "fun")<+>(pretty i)<+>(nest 2 (text "-"<>pretty aq<>text ">"</>(pprExprPrec 0 e))) in
+  let s = (text "\\")<+>(pretty i)<+>(nest 2 (text "-"<>pretty aq<>text ">"</>(pprExprPrec 0 e))) in
   addParen p 0 s
 pprExprPrec p (ExApp e1 e2) = 
   let s = (pprExprPrec 1 e1)<+>(pprExprPrec 1 e2) in
@@ -227,9 +227,10 @@ pprExprPrec p (ExLetp i1 i2 e1 e2) =
             </> pprExprPrec 0 e2 in
   addParen p 0 s
 pprExprPrec p (ExMatch e i1 e1 i2 e2) =
-  let s = text "match" <+> pprExprPrec 0 e<+> text "with" <> (nest 2 (line <>
-            text "inl" <+> pretty i1 <+> text "->" <+> pprExprPrec 0 e1 </> 
-            text "| inr" <+> pretty i2 <+> text "->" <+> pprExprPrec 0 e2))
+  let s = text "case" <+> pprExprPrec 0 e<+> text "of" <> (nest 2 (line <>
+            text "Left" <+> pretty i1 <+> text "->" <+> pprExprPrec 0 e1 
+              <> text ";"</> 
+            text "Right" <+> pretty i2 <+> text "->" <+> pprExprPrec 0 e2))
             in
   addParen p 0 s
 pprExprPrec p (ExWith e1 e2) =

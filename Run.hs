@@ -33,7 +33,12 @@ data RuVal =
   deriving (Show,Eq)
 
 instance Pretty RuVal where
-  pretty v = pretty (convertExpr v)
+  pretty (RVLit l) = pretty l
+  pretty (RVAbs a _ _) = text "\\ _ -"<>pretty a<>text "> _"
+  pretty (RVWith e1 e2) = text "[_, _]"
+  pretty (RVInl v) = pretty "Left" <+> pretty v
+  pretty (RVInr v) = pretty "Right" <+> pretty v
+  pretty (RVPair v1 v2) = parens (pretty v1<>comma<+> pretty v2)
 
 data RuCont = 
     KApp1 Expr
@@ -44,6 +49,8 @@ data RuCont =
   | K1Prim PrimOp1
   | K2Prim1 PrimOp2 Expr
   | K2Prim2 PrimOp2 RuVal
+  | KDup [RuVal] [Expr] [(Idx,Idx)] Expr
+  | KDrop [RuVal] [Expr] Expr
   deriving (Show,Eq)
 
 type RuEnv = M.Map Idx RuVal
@@ -87,6 +94,7 @@ convertVal (ExPrim1 (PrInl) v) = RVInl (convertVal v)
 convertVal (ExPrim1 (PrInr) v) = RVInr (convertVal v)
 convertVal (ExPrim2 (PrPair) v1 v2) = 
   RVPair (convertVal v1) (convertVal v2)
+convertVal e = error $ show $ text "bad e:"<+>pretty e
 
 convertExpr :: RuVal -> Expr
 convertExpr (RVLit l) = ExLit l
@@ -141,6 +149,8 @@ decr ls s =
                         M.delete l (decr (locs v) s)
         Nothing -> error "lab not found during decr"
 
+{- When we substitute, we're almost always subbing in a value
+ - except in the case of fixpoints -}
 substV :: Expr -> Idx -> RuVal -> Expr
 substV e i v = subst e i (convertExpr v)
 
@@ -161,7 +171,8 @@ runS s = do
   case res of
     Left s2 -> 
       let (_,k,e) = s2 in
-      trace ("---\nk:"++(show k)++"\ne:"++(show $ pretty e)) (runS s2)
+      {-trace ("---\nk:"++(show k)++"\ne:"++(show $ pretty e)) -}
+       (runS s2)
     Right sf -> return sf
 
 step :: RuState -> RuMonad (Either RuState RuFState)
@@ -174,20 +185,13 @@ step (s,k,ExLetp i1 i2 e1 e2) = do
 step (s,k,ExMatch e i1 e1 i2 e2) = do
   return $ Left (s,(KMatch i1 e1 i2 e2):k,e)
 step (s,k,ExDup es ips e2) = do
-  let vs = map convertVal es
-  let vips = zip vs ips
-  return $ Left $ (foldl processExp s vs,k,
-            foldl processBinds e2 vips)
-  where 
-    processExp k v = 
-      incr (locs v) k
-    processBinds e2 (v,(i1,i2)) =
-      substV (substV e2 i2 v) i1 v
+  case es of
+    ehd:etl -> return $ Left (s,(KDup [] etl ips e2):k,ehd)
+    [] -> return $ Left (s,k,e2)
 step (s,k,ExDrop es e2) = do
-  return $ Left $ (foldl processExp s es,k,e2)
-  where 
-    processExp k e = 
-      decr (locs (convertVal e)) k
+  case es of
+    ehd:etl -> return $ Left (s,(KDrop [] etl e2):k,ehd)
+    [] -> return $ Left (s,k,e2)
 step (s,k,ExPrim1 p e) = do
   return $ Left (s,(K1Prim p):k,e)
 step (s,k,ExPrim2 p e1 e2) = do
@@ -220,6 +224,25 @@ stepVal (s,(K2Prim1 p e):ktl,v) = do
   return $ Left (s,(K2Prim2 p v):ktl,e)
 stepVal (s,(K2Prim2 p v1):ktl,v2) =
   stepVal (s,ktl,applyPrim2 p v1 v2)
+stepVal (s,(KDup vs (ehd:etl) ips e2):ktl,v) = 
+  return $ Left (s,(KDup (v:vs) etl ips e2):ktl,ehd)
+stepVal (s,(KDup vs [] ips e2):ktl,v) = do
+  let newvs = v:vs
+  let vips = zip newvs ips
+  return $ Left $ (foldl processExp s newvs,ktl,
+            foldl processBinds e2 vips)
+  where 
+    processExp k v = 
+      incr (locs v) k
+    processBinds e2 (v,(i1,i2)) =
+      substV (substV e2 i2 v) i1 v
+stepVal (s,(KDrop vs (ehd:etl) e2):ktl,v) =
+  return $ Left (s,(KDrop (v:vs) etl e2):ktl,ehd)
+stepVal (s,(KDrop vs [] e2):ktl,v) = do
+  return $ Left $ (foldl processVal s (v:vs),ktl,e2)
+  where 
+    processVal s v = 
+      decr (locs v) s
 stepVal (s,[],v) = do
   return $ Right (s,v)
 

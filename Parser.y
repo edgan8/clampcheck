@@ -14,7 +14,7 @@ import ExprU
   '('       {TkLParen}
   ')'       {TkRParen}
   int       {TkInt $$}
-  unit      {TkUnit}
+  '()'      {TkUnit}
   fun       {TkFun}
   '->'      {TkArrow}
   '-U>'     {TkArrowU}
@@ -26,11 +26,11 @@ import ExprU
   in        {TkIn}
   ','       {TkComma}
   letp      {TkLetp}
-  inl       {TkInl}
-  inr       {TkInr}
-  match     {TkMatch}
-  with      {TkWith}
-  '|'       {TkPipe}
+  Left      {TkInl}
+  Right     {TkInr}
+  case      {TkMatch}
+  of        {TkWith}
+  ';'       {TkSemi}
   '['       {TkLBrack}
   ']'       {TkRBrack}
   fst       {TkFst}
@@ -56,9 +56,9 @@ import ExprU
 
 primop1 :: { PrimOp1 }
 primop1 :
-    inl
+    Left
       { PrInl }
-  | inr
+  | Right
       { PrInr }
   | fst
       { PrFst }
@@ -113,7 +113,7 @@ expr :
       { ExLet (IdS $2) $4 $6 }
   | letp '(' var ',' var ')' '=' expr in expr
       { ExLetp (IdS $3) (IdS $5) $8 $10 }
-  | match expr with inl var '->' expr '|' inr var '->' expr
+  | case expr of Left var '->' expr ';' Right var '->' expr
       { ExMatch $2 (IdS $5) $7 (IdS $10) $12 }
   | primop1 expr
       { ExPrim1 $1 $2 }
@@ -136,7 +136,7 @@ atexp :: {Expr}
 atexp :
     int
       { ExLit (LiNum $1) }
-  | unit
+  | '()'
       { ExLit LiUnit }
   | '(' expr ',' expr ')'
       { ExPrim2 PrPair $2 $4 }

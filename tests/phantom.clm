@@ -1,5 +1,5 @@
-let open = fun u -U> @lunit in
+-- @lunit creates a linear unit
+let open = \ u -U> @lunit in
 
-(fun x -U>
-  let f = open x in
-    f)
+\ x -U> 
+  let f = open x in f

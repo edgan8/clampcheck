@@ -10,14 +10,14 @@ $alpha = [a-zA-Z]
 tokens :-
 
   $white+                         { skip }
-  "//".*                          { skip }
+  "--".*                          { skip }
+  "()"                            { sAction TkUnit }
   "("                             { sAction TkLParen }
   ")"                             { sAction TkRParen }
   
   $digit+                         { strAction $ \s -> TkInt (read s) }
-  "unit"                          { sAction TkUnit }
 
-  "fun"                           { sAction TkFun }
+  \\                              { sAction TkFun }
   "->"                            { sAction TkArrow }
   "-U>"                           { sAction TkArrowU }
   "-R>"                           { sAction TkArrowR }
@@ -28,11 +28,11 @@ tokens :-
   "in"                            { sAction TkIn }
   ","                             { sAction TkComma }
   "letp"                          { sAction TkLetp }
-  "inl"                           { sAction TkInl }
-  "inr"                           { sAction TkInr }
-  "match"                         { sAction TkMatch }
-  "with"                          { sAction TkWith }
-  "|"                             { sAction TkPipe }
+  "Left"                          { sAction TkInl }
+  "Right"                         { sAction TkInr }
+  "case"                          { sAction TkMatch }
+  "of"                            { sAction TkWith }
+  ";"                             { sAction TkSemi }
   "["                             { sAction TkLBrack }
   "]"                             { sAction TkRBrack }
   "fst"                           { sAction TkFst }
@@ -84,7 +84,7 @@ data LToken =
   | TkInr
   | TkMatch
   | TkWith
-  | TkPipe
+  | TkSemi
   | TkLBrack
   | TkRBrack
   | TkFst

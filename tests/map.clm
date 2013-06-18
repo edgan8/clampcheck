@@ -1,8 +1,7 @@
-fix (fun frec -U> fun f -U> fun l -U>
-  match (@l_unfold l) with
-    inl ccell ->(
+fix (\ frec -U> \ f -U> \ l -U>
+  case (@l_unfold l) of
+    Left  ccell ->
       letp (hd,tl) = ccell in
-      @l_cons ((f hd),(frec f tl))
-      )
-  | inr dummy -> @l_nil
+      @l_cons ((f hd),(frec f tl));
+    Right dummy -> @l_nil
   )

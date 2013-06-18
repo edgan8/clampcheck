@@ -1,13 +1,14 @@
-let open = fun u -U> @lunit in
-let close = fun f -U> @ldispose f in
-let read = fun f -U> (1,f) in
+-- @lunit creates a linear unit, @ldispose deallocates it and returns ()
+let open = \ u -U> @lunit in
+let close = \ f -U> @ldispose f in
+let runPar = \ f1 -U> \ f2 -R>
+  (f1 (), f2 ()) in
 
-let runParallel = fun f -U> fun x -L>
-  (f x, f x) in
-let fref = wnew (open unit) in
-let proc = fun u -R> 
-  match release fref with
-    inl f -> close f
-  | inr dummy -> dummy
+let fref = wnew (open ()) in
+let proc = \ u -R> 
+  case (release fref) of
+    Left  f     -> close f;
+    Right dummy -> dummy
   in
-runParallel proc unit
+
+runPar proc proc
