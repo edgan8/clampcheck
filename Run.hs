@@ -262,6 +262,10 @@ applyPrim1 PrWNew (s,v) = do
   lnum <- lift get
   put (lnum+1)
   return (M.insert lnum (v,1) s,Left $ RVLit (LiLab lnum))
+applyPrim1 PrSNew (s,v) = do
+  lnum <- lift get
+  put (lnum+1)
+  return (M.insert lnum (v,1) s,Left $ RVLit (LiLab lnum))
 applyPrim1 PrRelease (s,RVLit (LiLab l)) = do
   case (M.lookup l s) of
     Just (sv,i) -> 
@@ -270,11 +274,35 @@ applyPrim1 PrRelease (s,RVLit (LiLab l)) = do
       else
         return (M.delete l s,Left $ RVInl sv)
     Nothing -> error "bad release"
+applyPrim1 PrSRelease (s,RVLit (LiLab l)) = do
+  case (M.lookup l s) of
+    Just (sv,i) -> 
+      if (i>1) then
+        error "strong release aliasing"
+      else
+        return (M.delete l s,Left $ sv)
+    Nothing -> error "bad release"
+applyPrim1 PrSwap (s,RVPair (RVLit (LiLab l)) v2) = do
+  case (M.lookup l s) of
+    Just (sv,i) -> 
+      return (M.insert l (v2,i) s,Left $ RVPair (RVLit (LiLab l)) sv)
+    Nothing -> error "bad swap"
+applyPrim1 PrSSwap (s,RVPair (RVLit (LiLab l)) v2) = do
+  case (M.lookup l s) of
+    Just (sv,i) -> 
+      if (i>1) then
+        error "strong swap aliasing"
+      else
+        return (M.insert l (v2,i) s,Left $ RVPair (RVLit (LiLab l)) sv)
+    Nothing -> error "bad swap"
+  
 
 applyPrim2 :: PrimOp2 -> RuVal -> RuVal -> RuVal
 applyPrim2 PrPair v1 v2 = RVPair v1 v2
 applyPrim2 p (RVLit (LiNum i1)) (RVLit (LiNum i2)) =
   (applyNumOp p i1 i2)
+applyPrim2 PrOr r1 r2 = applyBoolOp PrOr r1 r2
+applyPrim2 PrAnd r1 r2 = applyBoolOp PrAnd r1 r2
 
 
 mkNum :: Int -> RuVal
@@ -293,3 +321,13 @@ applyNumOp PrLt i1 i2 =
   if (i1 < i2) then mkTrue else mkFalse
 applyNumOp PrEqq i1 i2 =
   if (i1 == i2) then mkTrue else mkFalse
+
+applyBoolOp :: PrimOp2 -> RuVal -> RuVal -> RuVal
+applyBoolOp PrOr (RVInl _) _ = mkTrue
+applyBoolOp PrOr (RVInr _) (RVInl _) = mkTrue
+applyBoolOp PrOr (RVInr _) (RVInr _) = mkFalse
+applyBoolOp PrOr _ _ = error "bad boolop application"
+applyBoolOp PrAnd (RVInr _) _ = mkFalse
+applyBoolOp PrAnd (RVInl _) (RVInr _) = mkFalse
+applyBoolOp PrAnd (RVInl _) (RVInl _) = mkTrue
+applyBoolOp PrAnd _ _ = error "bad boolop application"
