@@ -6,7 +6,7 @@ module Infer (
   elookup,getType,
   Instantiable(..),
   TI(..), initTI, InferRet(..), Infer(..),
-  tiLit, tiExpr, split, tiDeclT,
+  tiLit, tiExpr, split, tiDeclT, tiProgT,
   initAS
 ) where
 
@@ -323,7 +323,6 @@ tiDecl ce as (DcLet i e)
     return $ InferRet {irpreds=retp,irt=AMap i (toScheme rett)}
 
 
-
 tiDeclT :: ClassEnv -> [Assump] -> Idx -> Expr -> Assump
 tiDeclT ce as i e =
   let (inferret, (subst,counter)) = runState (tiDecl ce as (DcLet i e)) initTI in
@@ -333,6 +332,14 @@ tiDeclT ce as i e =
   case epreds of
     [] -> eas
     _ -> eas
+
+---- Program Inference ----
+
+tiProgT :: ClassEnv -> [Assump] -> [Decl] -> [Assump]
+tiProgT ce as decls =
+    foldl addDecl [] decls 
+  where 
+    addDecl newAs (DcLet i e) = (tiDeclT ce (newAs++as) i e) : newAs
 
 ---- Initial Assumption Environment ----
 

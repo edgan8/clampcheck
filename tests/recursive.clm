@@ -2,6 +2,6 @@ let recur = fix \ f -U> \ x -U>
   case x > 0 of
     Left dummy -> x + f (x-1);
     Right dummy -> 0
-  in
+;;
 
 recur 4

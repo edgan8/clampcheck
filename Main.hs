@@ -13,6 +13,8 @@ import Control.Arrow
 
 initialAssump = initAS
 
+{-
+
 runTests :: String -> (Assump)
 runTests s = 
   let (Right er) = parseStr s in
@@ -35,6 +37,29 @@ processInput s =
             let (m,v) = run e in
             text ("map: "++show m)<$>
             pretty v<>line
+        in
+      show outdoc
+-}
+
+processProgram :: String -> String
+processProgram s =
+  case (parseStr s) of
+    (Left parseErr) -> "Parse Error: "++parseErr++"\n"
+    (Right rawDecls) -> 
+      let decls = map annotDecl rawDecls in
+      let types = tiProgT coreEnv initialAssump decls in
+      let outdoc =
+            text "----Annotated Declarations:----"<$>
+            pretty decls<$>
+            text "----Inferred TypeSchemes:-----"<$>
+            pretty (reverse types)<$>
+            text "----Interpreter Results:-----"<$>
+            {-
+            let (m,v) = run e in
+            text ("map: "++show m)<$>
+            pretty v<>
+            -}
+            line
         in
       show outdoc
 
@@ -61,4 +86,4 @@ fixtest = "fix (fun f -U> (fun g -U> (fun x -U> \
             \ match (x>1) with a -> ((f g) (g x)) + ((f g) (g (g x))) | b -> 1\
             \)))"
 
-main = interact processInput
+main = interact processProgram

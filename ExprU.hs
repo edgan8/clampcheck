@@ -257,3 +257,7 @@ pprExprPrec p (ExPrim2 pOp e1 e2)
   | otherwise = 
       let s = pretty pOp <+> (pprExprPrec 1 e1) <+> (pprExprPrec 1 e2) in
       addParen p 0 s
+
+
+instance Pretty Decl where
+  pretty (DcLet i e) = text("let")<+>(pretty i)<+>equals<+>(pretty e)

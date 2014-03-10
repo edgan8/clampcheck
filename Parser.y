@@ -4,7 +4,7 @@ import Lexer
 import ExprU
 }
 
-%name parse expr
+%name parse prog
 %tokentype { LToken }
 %error { parseError }
 %monad { Alex }
@@ -31,6 +31,7 @@ import ExprU
   case      {TkMatch}
   of        {TkWith}
   ';'       {TkSemi}
+  ';;'      {TkDoubleSemi}
   '['       {TkLBrack}
   ']'       {TkRBrack}
   fst       {TkFst}
@@ -149,6 +150,21 @@ atexp :
   | '(' expr ')'
       { $2 }
 
+
+decl :: {Decl}
+decl :
+    expr
+      { DcLet (IdS "_") ($1)}
+  | let var '=' expr
+      { DcLet (IdS $2) ($4) }
+
+prog :: {[Decl]}
+prog :
+    decl
+      { [$1] }
+  | prog ';;' decl
+      { $1 ++ [$3] }
+
 {
 
 parseError :: LToken -> Alex a
@@ -156,7 +172,7 @@ parseError t = do
   p <- getPos
   alexError (showPosn p ++ ":" ++ (show t))
 
-parseStr :: String -> Either String Expr
+parseStr :: String -> Either String [Decl]
 parseStr s = runAlex s parse
 
 }

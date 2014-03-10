@@ -1,5 +1,6 @@
 module Annot(
-  annotExpr
+  annotExpr,
+  annotDecl
 ) where
 import Util
 import ExprU
@@ -31,9 +32,11 @@ insertDrop :: AnCtx -> Expr -> Expr
 insertDrop [] e = e
 insertDrop xs@(x:tl) e = ExDrop (map ExVar xs) e
 
-
 annotExpr :: Expr -> Expr
 annotExpr e = snd $ evalState (annotExprM e) initAS
+
+annotDecl :: Decl -> Decl
+annotDecl (DcLet i e) = DcLet i (annotExpr e)
 
 -- If we bind i in an expression with fv c, return
 -- remaining fv and possible drop context

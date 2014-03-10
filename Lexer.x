@@ -14,6 +14,7 @@ tokens :-
   "()"                            { sAction TkUnit }
   "("                             { sAction TkLParen }
   ")"                             { sAction TkRParen }
+  ";;"                            { sAction TkDoubleSemi }
   
   $digit+                         { strAction $ \s -> TkInt (read s) }
 
@@ -67,6 +68,7 @@ sAction t = strAction (\_ -> t)
 data LToken =
     TkLParen
   | TkRParen
+  | TkDoubleSemi
   | TkInt Int
   | TkUnit
   | TkFun 
