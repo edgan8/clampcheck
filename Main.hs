@@ -41,6 +41,15 @@ processInput s =
       show outdoc
 -}
 
+
+-- To simplify the interpreter we combine all of the declarations
+-- into a single expression
+combineDecls :: [Decl] -> Expr
+combineDecls =
+  foldr addDecl (ExVar (IdS "_"))
+  where
+    addDecl (DcLet i e1) = ExLet i e1
+
 processProgram :: String -> String
 processProgram s =
   case (parseStr s) of
@@ -54,11 +63,9 @@ processProgram s =
             text "----Inferred TypeSchemes:-----"<$>
             pretty (reverse types)<$>
             text "----Interpreter Results:-----"<$>
-            {-
-            let (m,v) = run e in
+            let (m,v) = run (combineDecls decls) in
             text ("map: "++show m)<$>
             pretty v<>
-            -}
             line
         in
       show outdoc

@@ -360,5 +360,14 @@ initAS = [
           AMap (IdS "@lunit") 
             (toScheme tLU),
           AMap (IdS "@ldispose") 
-            (toScheme (mkArrow tUU tLU tUnit))
+            (toScheme (mkArrow tUU tLU tUnit)),
+          AMap (IdS "@wrmap")
+            (Forall [Star, Star] 
+              ([] :=> mkArrow tUU 
+                (mkArrow tUU (TyQuant 0) (TyQuant 0)) 
+                (mkArrow tUU
+                  (mkRef (TyQuant 1) (TyQuant 0))
+                  (mkRef (TyQuant 1) (TyQuant 0))
+                )
+            ))
           ] 

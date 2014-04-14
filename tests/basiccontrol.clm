@@ -1,5 +1,7 @@
-(\ x -U>
+let f = \ x -U>
   case x>1 of
     Left dummy -> (x+1,(\ z -L> z) 1);
     Right dummy -> (x-1,(\ z -L> z) 2)
-) 4
+;;
+
+f 4

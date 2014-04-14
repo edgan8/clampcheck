@@ -1,0 +1,54 @@
+let fstp = \p -U> 
+	letp (x, y) = p in
+	x
+;;
+
+let constL = \x -U> \y -L> x
+;;
+
+let constU = \x -U> \y -U> x
+;;
+
+let curryL = \f -U> \x -L> \y -L>
+	f (x, y)
+;;
+
+let curryU = \f -U> \x -U> \y -U>
+	f (x, y)
+;;
+
+let curryUL = \f -U> \x -U> \y -L>
+	f (x, y)
+;;
+
+let curryL = \f -U> \x -L> \y -L>
+	f (x, y)
+;;
+
+let until = fix \f -U> \funcs -U> \x -U>
+	letp (fguard, floop) = funcs in
+	case fguard x of
+		Left a -> x ;
+		Right a -> (f funcs (floop x))
+;;
+-- untilL is no less restrictive 
+
+let map = fix \frec -U> \f -U> \l -U>
+  case (@l_unfold l) of
+    Left ccell ->
+      letp (hd, tl) = ccell in
+      @l_cons ((f hd), (frec f tl)) ;
+    Right dummy -> @l_nil
+;;
+
+let concat = fix \frec -U> \lpair -U>
+	letp (l1, l2) = lpair in
+	case (@l_unfold l1) of
+		Left ccell ->
+			letp (hd, tl) = ccell in
+			@l_cons (hd, frec (tl, l2)) ;
+		Right dummy -> l2
+;;
+
+
+1

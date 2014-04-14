@@ -1,0 +1,19 @@
+let open = \ u -U> @lunit
+;;
+let log = \ u -U> u
+;;
+let close = \ u -U> @ldispose u
+;;
+let runPar = \ f1 -U> \ f2 -R>
+  (f1 (), f2 ())
+;;
+
+let fref = wnew (open ()) in
+let proc = \ u -R> 
+	let fref2 = @wrmap log fref in
+  	case (release fref2) of
+    	Left  f     -> close f;
+    	Right dummy -> dummy
+  	in
+
+runPar proc proc
